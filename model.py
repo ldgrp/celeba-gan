@@ -160,7 +160,7 @@ def build_generator(config: Config) -> models.Model:
     alpha = config.generator_alpha
     size = config.image_size
 
-    normal = initializers.RandomNormal(mean=0.0, stddev=0.2)
+    normal = initializers.RandomNormal(mean=0.0, stddev=0.02)
 
     model = models.Sequential([
         layers.Dense(4*4*256, use_bias=False, input_dim=seed_size),
@@ -203,7 +203,7 @@ def build_discriminator(config: Config) -> models.Model:
     dropout = config.dropout
     image_shape = (config.image_size, config.image_size, config.image_channels)
 
-    normal = initializers.RandomNormal(mean=0.0, stddev=0.2)
+    normal = initializers.RandomNormal(mean=0.0, stddev=0.02)
 
     model = models.Sequential([
         layers.Conv2D(64, kernel_size=kernel_size, strides=2, 
