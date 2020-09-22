@@ -2,6 +2,7 @@ from pathlib import Path
 from utils import Config, plot, save_images, hms_string
 from tensorflow.keras import initializers, layers, metrics, \
                              models, optimizers, losses
+from tqdm import tqdm
 import logging
 import numpy as np
 import tensorflow as tf
@@ -39,7 +40,7 @@ class GAN:
         self.loss_ds = []
         self.d_reals = []
         self.d_fakes = []
-
+        self.images = []
 
     def discriminator_loss(self, real_output, fake_output):
         '''
@@ -114,8 +115,20 @@ class GAN:
         start = time.time()
 
         
-        loss_g, loss_d, d_real, d_fake = map(sum, zip(
-            *[self.distributed_epoch_step(batch) for batch in images]))
+        total_loss_g, total_loss_d, total_d_real, total_d_fake = 0, 0, 0, 0
+        batches = 0
+        for batch in tqdm(images):
+            loss_g, loss_d, d_real, d_fake = self.distributed_epoch_step(batch)
+            total_loss_g += loss_g
+            total_loss_d += loss_d
+            total_d_real += d_real
+            total_d_fake += d_fake
+            batches += 1
+
+        loss_g = total_loss_g/batches
+        loss_d = total_loss_d/batches
+        d_real = total_d_real/batches
+        d_fake = total_d_fake/batches
 
         elapsed = time.time() - start
 
@@ -128,15 +141,12 @@ class GAN:
         self.d_fakes.append(d_fake)
 
         # checkpoint
-        if epoch % self.config.checkpoint_freq == 0:
+        if (epoch + 1) % self.config.checkpoint_freq == 0:
             log.info('Saving checkpoint...')
             self.checkpoint.save(file_prefix=self.checkpoint_prefix)
         
         preview = self.generator.predict(self.config.fixed_seed)
-        save_images(self.config, preview, epoch)
-
-        plot(self.loss_gs, self.loss_ds, self.d_reals, 
-            self.d_fakes, self.config.output_dir / 'plot.png')
+        self.images.append(save_images(self.config, preview, epoch))
 
         return loss_g, loss_d, d_real, d_fake
 
@@ -152,6 +162,17 @@ class GAN:
 
         elapsed = time.time() - start
         log.info (f'Training time: {hms_string(elapsed)}')
+
+        output_path = self.config.output_dir / 'output'
+        output_path.mkdir(exist_ok=True)
+
+        print(len(self.images))
+        for i, im in enumerate(self.images):
+            filename = output_path / f"train-{i}.png"
+            im.save(filename)
+
+        plot(self.loss_gs, self.loss_ds, self.d_reals, 
+            self.d_fakes, self.config.output_dir / 'plot.png')
 
 def build_generator(config: Config) -> models.Model:
     seed_size = config.seed_size
@@ -236,3 +257,4 @@ def build_discriminator(config: Config) -> models.Model:
     ])
 
     return model
+

@@ -2,11 +2,14 @@ from pathlib import Path
 from typing import List
 from PIL import Image
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 
 import json
 import logging
 import sys
+
+matplotlib.use('Agg')
 
 class Config:
     image_size: int = 32
@@ -107,18 +110,18 @@ def save_images(config: Config, images, epoch: int):
 
     image_array = np.full((
         margin + (rows * (size + margin)),
-        margin + (cols * (size+ margin)), 
+        margin + (cols * (size + margin)), 
         channels
         ), 255, dtype=np.uint8)
 
-    images = (0.5 * images + 0.5) * 255
+    images = 0.5 * images + 0.5
 
     i = 0
     for row in range(rows):
         for col in range(cols):
             r = row * (size + 16) + margin
             c = col * (size + 16) + margin
-            image_array[r:r+size, c:c+size] = images[i]
+            image_array[r:r+size, c:c+size] = images[i] * 255
             i += 1
 
     output_path = config.output_dir / 'output'
@@ -127,11 +130,11 @@ def save_images(config: Config, images, epoch: int):
     filename =  output_path / f"train-{epoch}.png"
     im = Image.fromarray(image_array)
 
-    logging.info(f'Saving {filename}')
-    im.save(filename)
+    return im
 
 def hms_string(sec_elapsed):
     h = int(sec_elapsed / (60 * 60))
     m = int((sec_elapsed % (60 * 60)) / 60)
     s = sec_elapsed % 60
     return f'{h}:{m:02}:{s:05.2f}'
+
