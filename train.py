@@ -10,8 +10,6 @@ import sys
 import tensorflow as tf
 
 class Arguments(Tap):
-    input_dir: Optional[str] = 'data'  # Dataset directory
-    output_dir: Optional[str] = 'output'  # Output directory
     config: Optional[str] = None # Config file
 
 def parse_tfrecord(record):
@@ -29,20 +27,20 @@ def parse_tfrecord(record):
     return img
 
 if __name__ == '__main__':
+    config = Config()
+
     args = Arguments().parse_args()
 
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(exist_ok=True)
+    # Load configuration file
+    if args.config:
+        config.load_json(args.config)
+
+    output_dir = config.output_dir
+    input_dir = config.input_dir
+    output_dir.mkdir(exist_ok=False)
 
     # Setup logging
     set_logger(output_dir / 'train.log')
-
-    # Load configuration file
-    config = Config()
-
-    if args.config:
-        print(args.config)
-        config.load_json(args.config)
 
     strategy = tf.distribute.MirroredStrategy()
 
@@ -50,13 +48,11 @@ if __name__ == '__main__':
 
     # Create input pipeline 
     logging.info('Loading input files...')
-    input_dir = Path(args.input_dir)
     files = tf.io.matching_files(f'{input_dir}/*.tfrecord')
     dataset = (
         tf.data.TFRecordDataset(files)
         .map(parse_tfrecord, num_parallel_calls=AUTOTUNE)
-        .take(128)
-        .cache()
+	.cache()
         .shuffle(config.buffer_size)
         .batch(config.global_batch_size)
         .prefetch(AUTOTUNE)
