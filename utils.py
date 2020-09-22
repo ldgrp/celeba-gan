@@ -43,11 +43,17 @@ class Config:
         '''
         Load a configuration from a json file and override defaults
         '''
+		# TODO: Fix hacky
         with open(json_path, 'r') as f:
             data = json.load(f)
 
             for k, v in data.items():
                 self.__dict__.__setitem__(k, v)
+            if data.get('input_dir'):
+                self.input_dir = Path(data['input_dir'])
+            if data.get('output_dir'):
+               self.output_dir = Path(data['output_dir'])
+
         return self
     
 def set_logger(path: Path) -> logging.Logger:
